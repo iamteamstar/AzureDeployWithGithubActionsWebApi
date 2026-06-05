@@ -41,6 +41,13 @@ app.MapDelete("/products/{id:int}", (int id) =>
 	return Results.NoContent();
 });
 
+static Dictionary<string, string[]>? Validate(Products p)
+{
+	var errors = new Dictionary<string, string[]>();
+	if (string.IsNullOrWhiteSpace(p.Name)) errors["Name"] = ["Ýsim boþ olamaz."];
+	if (p.Price <= 0) errors["Price"] = ["Fiyat 0'dan büyük olmalý."];
+	return errors.Count > 0 ? errors : null;
+}
 
 app.Run();
 public partial class Program { }
