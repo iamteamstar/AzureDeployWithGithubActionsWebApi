@@ -31,6 +31,15 @@ app.MapPost("/products", (Products product) =>
 	products.Add(product);
 	return Results.Created($"/products/{product.Id}", product);
 });
+app.MapPut("/products/{id:int}", (int id, Products input) =>
+{
+	var index = products.FindIndex(p => p.Id == id);
+	if (index == -1) return Results.NotFound();
+	var errors = Validate(input);
+	if (errors is not null) return Results.ValidationProblem(errors);
+	products[index] = input with { Id = id };
+	return Results.Ok(products[index]);
+});
 
 app.MapDelete("/products/{id:int}", (int id) =>
 {
