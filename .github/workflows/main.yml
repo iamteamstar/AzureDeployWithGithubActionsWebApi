@@ -7,10 +7,10 @@ on:
 
 env:
   AZURE_WEBAPP_NAME: AzureDeployWithGithubActionsWebApi
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: '8.0.x'   # API ve test projesinin TargetFramework'ü ile AYNI olmalı
 
 jobs:
-  build-and-deploy:
+  build-test-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,18 +21,21 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Locate csproj
-        id: csproj
-        run: |
-          CSPROJ=$(find . -name "*.csproj" | head -1)
-          echo "Bulunan proje: $CSPROJ"
-          echo "path=$CSPROJ" >> "$GITHUB_OUTPUT"
-
       - name: Restore
-        run: dotnet restore "${{ steps.csproj.outputs.path }}"
+        run: dotnet restore
 
       - name: Build
-        run: dotnet build "${{ steps.csproj.outputs.path }}" --configuration Release --no-restore
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Locate API csproj (test projesini hariç tut)
+        id: csproj
+        run: |
+          CSPROJ=$(find . -name "*.csproj" ! -name "*Test*" ! -name "*Tests*" | head -1)
+          echo "Yayınlanacak proje: $CSPROJ"
+          echo "path=$CSPROJ" >> "$GITHUB_OUTPUT"
 
       - name: Publish
         run: dotnet publish "${{ steps.csproj.outputs.path }}" --configuration Release --no-build --output ./publish
