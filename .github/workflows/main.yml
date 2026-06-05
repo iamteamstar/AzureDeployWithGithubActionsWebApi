@@ -1,0 +1,60 @@
+name: Build and deploy to Azure
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]      # PR'da da çalışsın ki check raporlansın
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: AzureDeployWithGithubActionsWebApi
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-test:               # ruleset'teki zorunlu check adıyla AYNI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Restore
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
+      - name: Locate API csproj (test projesini hariç tut)
+        id: csproj
+        run: |
+          CSPROJ=$(find . -name "*.csproj" ! -name "*Test*" ! -name "*Tests*" | head -1)
+          echo "Yayınlanacak proje: $CSPROJ"
+          echo "path=$CSPROJ" >> "$GITHUB_OUTPUT"
+      - name: Publish
+        run: dotnet publish "${{ steps.csproj.outputs.path }}" --configuration Release --no-build --output ./publish
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish
+          path: ./publish
+
+  deploy:
+    needs: build-test
+    runs-on: ubuntu-latest
+    # Sadece main'e push olunca deploy et, PR'da etme
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: publish
+          path: ./publish
+      - name: Deploy to Azure
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
